@@ -1,0 +1,53 @@
+version: "3.8"
+
+services:
+  database:
+    image: postgres
+    volumes:
+      - postgres_data:/var/lib/postgresql/data
+    environment:
+      - POSTGRES_USER=${POSTGRES_USER}
+      - POSTGRES_PASSWORD=${POSTGRES_PASSWORD}
+      - POSTGRES_DB=${POSTGRES_DATABASE}
+      - PGPORT=${POSTGRES_PORT}
+    networks:
+      - ddphoenix-server
+    restart: unless-stopped
+    mem_limit: 1g
+    memswap_limit: 1g
+    cpus: 1
+    ports:
+      - "5432:5432"
+    healthcheck:
+      test: ["CMD", "pg_isready", "-U", "${POSTGRES_USER}"]
+      interval: 10s
+      timeout: 5s
+      retries: 10
+
+  app:
+    build:
+      context: .
+      dockerfile: Dockerfile
+    command: sh -c "mix ecto.create && mix ecto.migrate && mix ecto.setup && mix phx.server"
+    volumes:
+      - .:/app
+    env_file:
+      - .env
+    networks:
+      - ddphoenix-server
+    restart: "on-failure"
+    mem_limit: 1g
+    memswap_limit: 1g
+    cpus: 1
+    ports:
+      - "4000:4000"
+    depends_on:
+      database:
+        condition: service_healthy
+
+networks:
+  ddphoenix-server:
+    driver: bridge
+
+volumes:
+  postgres_data:
